@@ -1,0 +1,72 @@
+:root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1f2937;
+  background-color: #ffffff;
+  
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ag-grid theme customization */
+.ag-theme-alpine {
+  --ag-background-color: #ffffff;
+  --ag-header-background-color: #f8fafc;
+  --ag-odd-row-background-color: #ffffff;
+  --ag-even-row-background-color: #f8fafc;
+  --ag-border-color: #e5e7eb;
+  --ag-header-foreground-color: #374151;
+  --ag-foreground-color: #1f2937;
+  --ag-selected-row-background-color: #dbeafe;
+}
+
+.ag-cell-editing {
+  background-color: #dbeafe !important;
+  border: 2px solid #2563eb !important;
+}
+
+.ag-cell-editor-wrapper {
+  background-color: #ffffff !important;
+}
+
+/* User indicator styles */
+.user-indicator {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 12px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Custom cell styles for editing indication */
+.cell-being-edited {
+  position: relative;
+  background-color: #dbeafe !important;
+  border: 2px solid #2563eb !important;
+}

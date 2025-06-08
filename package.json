@@ -1,0 +1,18 @@
+{
+  "name": "realtime-spreadsheet-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:be\" \"npm run dev:fe\"",
+    "dev:fe": "cd fe && npm run dev",
+    "dev:be": "cd be && npm run dev",
+    "build": "npm run build:fe && npm run build:be",
+    "build:fe": "cd fe && npm run build",
+    "build:be": "cd be && npm run build",
+    "install:all": "npm install && cd fe && npm install && cd ../be && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
