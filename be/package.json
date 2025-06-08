@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "npx nodemon src/server.js",
-    "build": "echo 'Backend build complete'",
+    "build": "echo 'No build step required for Node.js backend'",
     "start": "node src/server.js"
   },
   "dependencies": {

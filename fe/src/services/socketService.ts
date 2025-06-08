@@ -6,8 +6,37 @@ class SocketService {
   private listeners: Map<string, Function[]> = new Map();
 
   connect() {
-    // Use environment variable or fallback to localhost for development
-    const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:3001';
+    // Automatically determine server URL based on environment
+    let serverUrl = 'http://localhost:3001'; // Default for development
+    
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      
+      // If we're on Vercel (production)
+      if (hostname.includes('vercel.app')) {
+        // Automatically determine backend URL based on frontend URL
+        // Replace 'fe' with 'be' in the hostname if present, otherwise use generic pattern
+        const backendHostname = hostname.includes('fe') 
+          ? hostname.replace('fe', 'be')
+          : hostname.replace('spreadsheet', 'spreadsheet-be');
+        serverUrl = `https://${backendHostname}`;
+        
+        // Fallback: You can also set specific URL here
+        // serverUrl = 'https://YOUR_ACTUAL_BACKEND_URL.vercel.app';
+      }
+      // If we're on localhost but frontend is on different port
+      else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        serverUrl = 'http://localhost:3001';
+      }
+    }
+
+    // Allow environment variable to override
+    const envUrl = (import.meta as any).env?.VITE_SERVER_URL;
+    if (envUrl) {
+      serverUrl = envUrl;
+    }
+
+    console.log('🌐 Connecting to server:', serverUrl);
     
     try {
       this.socket = io(serverUrl, {
@@ -15,7 +44,8 @@ class SocketService {
         upgrade: true,
         rememberUpgrade: true,
         timeout: 20000,
-        forceNew: true
+        forceNew: true,
+        withCredentials: true
       });
 
       // Setup event forwarding
