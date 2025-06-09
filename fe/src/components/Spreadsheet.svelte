@@ -260,20 +260,6 @@
 </script>
 
 <div class="spreadsheet-container">
-  <!-- User avatars in top-right corner -->
-  <!-- <div class="user-avatars">
-    {#each users as user (user.id)}
-      <div 
-        class="user-avatar"
-        class:current-user={currentUser?.id === user.id}
-        style="background-color: {user.color}"
-        title="{user.name} {currentUser?.id === user.id ? '(You)' : ''}"
-      >
-        {getInitials(user.name)}
-      </div>
-    {/each}
-  </div> -->
-
   <table class="spreadsheet-table">
     <thead>
       <tr>
@@ -334,43 +320,7 @@
     position: relative;
   }
 
-  .user-avatars {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    display: flex;
-    gap: 6px;
-    z-index: 10;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 8px;
-    border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(4px);
-  }
 
-  .user-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: 12px;
-    cursor: default;
-    transition: transform 0.2s ease;
-    border: 2px solid transparent;
-  }
-
-  .user-avatar:hover {
-    transform: scale(1.1);
-  }
-
-  .current-user {
-    border-color: #1f2937;
-    box-shadow: 0 0 0 1px #ffffff;
-  }
 
   .spreadsheet-table {
     width: 100%;

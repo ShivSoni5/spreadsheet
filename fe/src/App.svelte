@@ -254,24 +254,7 @@
     gap: 12px;
   }
 
-  .share-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    background-color: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-  }
 
-  .share-button:hover {
-    background-color: #1d4ed8;
-  }
 
   .app-content {
     flex: 1;
