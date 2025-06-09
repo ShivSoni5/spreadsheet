@@ -29,7 +29,7 @@ export interface SocketEvents {
   'users-updated': (users: User[]) => void;
   'cell-edit-started': (data: { cellId: string; user: User }) => void;
   'cell-edit-ended': (data: { cellId: string }) => void;
-  'cell-value-updated': (data: { rowIndex: number; field: string; value: string }) => void;
+  'cell-value-updated': (data: { rowIndex: number; field: string; value: string; senderSessionId: string }) => void;
   'connect': () => void;
   'disconnect': () => void;
 }

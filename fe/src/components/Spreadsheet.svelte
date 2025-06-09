@@ -226,6 +226,13 @@
       const rowIndex = data.rowIndex;
       const field = data.field;
       const value = data.value;
+      const senderSessionId = data.senderSessionId;
+      
+      // Skip updates from the same session to prevent overwriting local changes
+      if (senderSessionId === sessionId) {
+        console.log('🚫 Skipping self-update for cell:', `${rowIndex}-${field}`);
+        return;
+      }
       
       if (spreadsheetData[rowIndex] && field) {
         // Set flag to prevent triggering another update

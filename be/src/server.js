@@ -252,8 +252,13 @@ io.on('connection', (socket) => {
       spreadsheetDocuments.set(documentId, data);
       
       console.log('📤 Broadcasting cell-value-updated to document:', documentId);
-      // Broadcast change to ALL users working on this document
-      io.to(`doc:${documentId}`).emit('cell-value-updated', { rowIndex, field, value });
+      // Broadcast change to ALL users working on this document, include sender sessionId
+      io.to(`doc:${documentId}`).emit('cell-value-updated', { 
+        rowIndex, 
+        field, 
+        value, 
+        senderSessionId: sessionId 
+      });
     } else {
       console.log('❌ Invalid data or rowIndex for document:', documentId);
     }
