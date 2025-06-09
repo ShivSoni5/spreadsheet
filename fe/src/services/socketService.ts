@@ -91,27 +91,27 @@ class SocketService {
     }
   }
 
-  joinSession(sessionId: string) {
+  joinSession(documentId: string) {
     if (this.socket) {
-      this.socket.emit('join-session', sessionId);
+      this.socket.emit('join-session', { documentId });
     }
   }
 
-  startCellEdit(sessionId: string, cellId: string) {
+  startCellEdit(sessionId: string, documentId: string, cellId: string) {
     if (this.socket) {
-      this.socket.emit('cell-edit-start', { sessionId, cellId });
+      this.socket.emit('cell-edit-start', { sessionId, documentId, cellId });
     }
   }
 
-  endCellEdit(sessionId: string, cellId: string) {
+  endCellEdit(sessionId: string, documentId: string, cellId: string) {
     if (this.socket) {
-      this.socket.emit('cell-edit-end', { sessionId, cellId });
+      this.socket.emit('cell-edit-end', { sessionId, documentId, cellId });
     }
   }
 
-  updateCellValue(sessionId: string, rowIndex: number, field: string, value: string) {
+  updateCellValue(sessionId: string, documentId: string, rowIndex: number, field: string, value: string) {
     if (this.socket) {
-      this.socket.emit('cell-value-change', { sessionId, rowIndex, field, value });
+      this.socket.emit('cell-value-change', { sessionId, documentId, rowIndex, field, value });
     }
   }
 

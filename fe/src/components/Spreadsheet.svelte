@@ -4,6 +4,7 @@
   import type { User, SpreadsheetCell } from '../types/user';
 
   export let sessionId: string = '';
+  export let documentId: string = 'default-doc';
   export let currentUser: User | null = null;
   export let users: User[] = []; // Receive users from parent App component
 
@@ -40,8 +41,8 @@
   function handleCellFocus(rowIndex: number, columnKey: string): void {
     const cellId = `${rowIndex}-${columnKey}`;
     editingCell = cellId;
-    if (sessionId) {
-      socketService.startCellEdit(sessionId, cellId);
+    if (sessionId && documentId) {
+      socketService.startCellEdit(sessionId, documentId, cellId);
     }
   }
 
@@ -49,8 +50,8 @@
   function handleCellBlur(rowIndex: number, columnKey: string): void {
     const cellId = `${rowIndex}-${columnKey}`;
     editingCell = null;
-    if (sessionId) {
-      socketService.endCellEdit(sessionId, cellId);
+    if (sessionId && documentId) {
+      socketService.endCellEdit(sessionId, documentId, cellId);
     }
   }
 
@@ -69,8 +70,8 @@
     }
     
     // Send update to server (which will broadcast to all clients)
-    if (sessionId) {
-      socketService.updateCellValue(sessionId, rowIndex, columnKey, value);
+    if (sessionId && documentId) {
+      socketService.updateCellValue(sessionId, documentId, rowIndex, columnKey, value);
     }
   }
 
@@ -182,7 +183,7 @@
 
 <div class="spreadsheet-container">
   <!-- User avatars in top-right corner -->
-  <div class="user-avatars">
+  <!-- <div class="user-avatars">
     {#each users as user (user.id)}
       <div 
         class="user-avatar"
@@ -193,7 +194,7 @@
         {getInitials(user.name)}
       </div>
     {/each}
-  </div>
+  </div> -->
 
   <table class="spreadsheet-table">
     <thead>
@@ -225,7 +226,13 @@
               {#if cellEditorsUpdateCounter >= 0 && isEditedByOther(rowIndex, columnKey)}
                 {#each [getCellEditor(rowIndex, columnKey)] as editor}
                   {#if editor}
-                    <div class="cell-editor-indicator" style="background-color: {editor.color}">
+                    <div 
+                      class="cell-editor-indicator" 
+                      style="background-color: {editor.color}"
+                      title="{editor.name} is editing this cell"
+                      role="tooltip"
+                      aria-label="{editor.name} is editing this cell"
+                    >
                       {getInitials(editor.name)}
                     </div>
                   {/if}
@@ -385,6 +392,14 @@
     border: 2px solid white;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     animation: pulse 2s infinite;
+    cursor: help;
+    pointer-events: auto;
+  }
+
+  .cell-editor-indicator:hover {
+    z-index: 999;
+    animation-play-state: paused;
+    transform: scale(1.1);
   }
 
   @keyframes pulse {

@@ -15,7 +15,9 @@
       class="user-avatar"
       class:current-user={currentUser?.id === user.id}
       style="background-color: {user.color}"
-      title={user.name}
+      title="{user.name}{currentUser?.id === user.id ? ' (You)' : ''}"
+      role="tooltip"
+      aria-label="{user.name}{currentUser?.id === user.id ? ' (You)' : ''}"
     >
       {getInitials(user.name)}
     </div>
@@ -42,10 +44,13 @@
     cursor: default;
     transition: transform 0.2s ease;
     border: 2px solid transparent;
+    position: relative;
+    z-index: 1;
   }
 
   .user-avatar:hover {
     transform: scale(1.1);
+    z-index: 999;
   }
 
   .current-user {

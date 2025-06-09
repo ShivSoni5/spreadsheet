@@ -10,6 +10,7 @@
   let currentUser: User | null = null;
   let isConnected = false;
   let sessionId = '';
+  let documentId = 'default-doc'; // Add documentId - could be from URL or fixed
 
   onMount(() => {
     // Initialize socket connection
@@ -22,14 +23,15 @@
   function setupEventListeners() {
     // Listen for socket events
     socketService.on('session-joined', (data) => {
-      console.log('📋 Session joined:', { sessionId: data.sessionId, users: data.users.length, userNames: data.users.map(u => u.name) });
+      console.log('📋 Session joined:', { sessionId: data.sessionId, documentId: data.documentId, users: data.users.length, userNames: data.users.map(u => u.name) });
       sessionId = data.sessionId;
+      documentId = data.documentId;
       currentUser = data.user;
       users = data.users;
       isConnected = true;
       
-      // Store session ID in localStorage for other tabs
-      localStorage.setItem('spreadsheet-session-id', sessionId);
+      // Store document ID in localStorage for other tabs
+      localStorage.setItem('spreadsheet-document-id', documentId);
     });
 
     socketService.on('user-joined', (user: User) => {
@@ -56,21 +58,21 @@
     });
 
     socketService.on('connect', () => {
-      console.log('🔌 Socket connected, joining session...');
+      console.log('🔌 Socket connected, joining document...');
       isConnected = true;
       
-      // Join session only after connection is established
+      // Join document only after connection is established
       const urlParams = new URLSearchParams(window.location.search);
-      const sessionFromUrl = urlParams.get('session');
+      const documentFromUrl = urlParams.get('doc') || urlParams.get('document');
       
-      // Check localStorage for existing session (to share across tabs)
-      const storedSessionId = localStorage.getItem('spreadsheet-session-id');
+      // Check localStorage for existing document (to share across tabs)
+      const storedDocumentId = localStorage.getItem('spreadsheet-document-id');
       
-      // Use URL session > stored session > create new
-      const targetSessionId = sessionFromUrl || storedSessionId || '';
+      // Use URL document > stored document > default
+      const targetDocumentId = documentFromUrl || storedDocumentId || 'default-doc';
       
-      console.log('🎯 Joining session:', { fromUrl: sessionFromUrl, stored: storedSessionId, target: targetSessionId });
-      socketService.joinSession(targetSessionId);
+      console.log('🎯 Joining document:', { fromUrl: documentFromUrl, stored: storedDocumentId, target: targetDocumentId });
+      socketService.joinSession(targetDocumentId);
     });
 
     socketService.on('disconnect', () => {
@@ -81,12 +83,6 @@
   onDestroy(() => {
     socketService.disconnect();
   });
-
-  function copySessionLink() {
-    const url = new URL(window.location.href);
-    url.searchParams.set('session', sessionId);
-    navigator.clipboard.writeText(url.toString());
-  }
 </script>
 
 <main class="app-container">
@@ -96,17 +92,10 @@
       <ConnectionStatus {isConnected} />
       {#if sessionId}
         <div class="session-info">
+          <span class="session-id">Document: {documentId}</span>
           <span class="session-id">Session: {sessionId.slice(0, 8)}...</span>
           <span class="user-count">{users.length} user{users.length !== 1 ? 's' : ''}</span>
         </div>
-        <button class="share-button" on:click={copySessionLink} title="Copy session link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-            <polyline points="16,6 12,2 8,6"/>
-            <line x1="12" y1="2" x2="12" y2="15"/>
-          </svg>
-          Share
-        </button>
       {/if}
     </div>
     <div class="header-right">
@@ -116,7 +105,7 @@
 
   <div class="app-content">
     {#if sessionId}
-      <Spreadsheet {sessionId} {currentUser} {users} />
+      <Spreadsheet {sessionId} {documentId} {currentUser} {users} />
     {:else}
       <div class="loading-state">
         <div class="loading-spinner"></div>

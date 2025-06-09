@@ -3,6 +3,7 @@ export interface User {
   name: string;
   color: string;
   sessionId: string;
+  documentId?: string;
 }
 
 export interface CellEditor {
@@ -17,6 +18,7 @@ export interface SpreadsheetCell {
 export interface SocketEvents {
   'session-joined': (data: {
     sessionId: string;
+    documentId: string;
     user: User;
     users: User[];
     spreadsheetData: SpreadsheetCell[];

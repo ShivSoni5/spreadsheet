@@ -54,8 +54,9 @@ app.get('/', (req, res) => {
 // In-memory storage (use database in production)
 const sessions = new Map();
 const users = new Map();
-const spreadsheetData = new Map();
-const cellEditors = new Map(); // Track who is editing which cell
+const spreadsheetDocuments = new Map(); // Changed from spreadsheetData - keyed by documentId
+const documentCellEditors = new Map(); // Changed from cellEditors - keyed by documentId
+const documentSessions = new Map(); // Track which sessions are working on which documents
 
 // Generate random names
 const randomNames = [
@@ -87,16 +88,32 @@ app.get('/debug/sessions', (req, res) => {
   const sessionData = {};
   for (const [sessionId, session] of sessions.entries()) {
     sessionData[sessionId] = {
-      users: session.users.length,
-      userNames: session.users.map(u => u.name),
+      user: session.user.name,
+      documentId: session.documentId,
       created: session.created
+    };
+  }
+  
+  const documentData = {};
+  for (const [documentId, docSessions] of documentSessions.entries()) {
+    const docUsers = [];
+    for (const [userId, userData] of users.entries()) {
+      if (userData.documentId === documentId) {
+        docUsers.push(userData.name);
+      }
+    }
+    documentData[documentId] = {
+      sessions: docSessions.size,
+      users: docUsers
     };
   }
   
   res.json({
     totalSessions: sessions.size,
     totalUsers: users.size,
-    sessions: sessionData
+    totalDocuments: spreadsheetDocuments.size,
+    sessions: sessionData,
+    documents: documentData
   });
 });
 
@@ -105,37 +122,41 @@ io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   // Join session
-  socket.on('join-session', (sessionId) => {
-    console.log('🔌 User joining session:', { socketId: socket.id, requestedSessionId: sessionId });
+  socket.on('join-session', ({ documentId }) => {
+    console.log('🔌 User joining document:', { socketId: socket.id, documentId });
     
-    if (!sessionId) {
-      sessionId = uuidv4();
-      console.log('🆕 Generated new session:', sessionId);
-    }
+    // Always generate a new unique session ID for each user
+    const sessionId = uuidv4();
+    console.log('🆕 Generated new session for user:', sessionId);
 
-    // Create user
+    // Create user with unique session
     const user = {
       id: socket.id,
       name: generateRandomName(),
       color: generateUserColor(),
-      sessionId
+      sessionId,
+      documentId
     };
 
-    console.log('👤 Created user:', user.name, 'for session:', sessionId);
+    console.log('👤 Created user:', user.name, 'for document:', documentId);
 
     users.set(socket.id, user);
-    socket.join(sessionId);
+    socket.join(sessionId); // User joins their own session
+    socket.join(`doc:${documentId}`); // User also joins document room
     
-    console.log('User joined room:', sessionId);
+    console.log('User joined session:', sessionId, 'and document room:', `doc:${documentId}`);
 
-    // Initialize session if it doesn't exist
-    if (!sessions.has(sessionId)) {
-      sessions.set(sessionId, {
-        id: sessionId,
-        users: [],
-        created: new Date()
-      });
-      
+    // Initialize user session
+    sessions.set(sessionId, {
+      id: sessionId,
+      userId: socket.id,
+      user,
+      documentId,
+      created: new Date()
+    });
+
+    // Initialize document if it doesn't exist
+    if (!spreadsheetDocuments.has(documentId)) {
       // Initialize spreadsheet data - 10x10 grid to match client
       const initialData = [];
       for (let i = 0; i < 10; i++) {
@@ -146,86 +167,95 @@ io.on('connection', (socket) => {
         }
         initialData.push(row);
       }
-      spreadsheetData.set(sessionId, initialData);
-      cellEditors.set(sessionId, new Map());
+      spreadsheetDocuments.set(documentId, initialData);
+      documentCellEditors.set(documentId, new Map());
+      documentSessions.set(documentId, new Set());
     }
 
-    // Add user to session
-    const session = sessions.get(sessionId);
-    session.users = session.users.filter(u => u.id !== socket.id);
-    session.users.push(user);
+    // Add session to document tracking
+    const docSessions = documentSessions.get(documentId);
+    docSessions.add(sessionId);
 
-    console.log('📊 Session users:', session.users.length, 'users:', session.users.map(u => u.name));
+    // Get all users working on this document
+    const allDocumentUsers = [];
+    for (const [userId, userData] of users.entries()) {
+      if (userData.documentId === documentId) {
+        allDocumentUsers.push(userData);
+      }
+    }
 
-    // Get current cell editors for this session
-    const sessionCellEditors = cellEditors.get(sessionId) || new Map();
-    const cellEditorsObject = Object.fromEntries(sessionCellEditors);
+    console.log('📊 Document users:', allDocumentUsers.length, 'users:', allDocumentUsers.map(u => u.name));
+
+    // Get current cell editors for this document
+    const docCellEditors = documentCellEditors.get(documentId) || new Map();
+    const cellEditorsObject = Object.fromEntries(docCellEditors);
 
     // Send current state to user
     socket.emit('session-joined', {
       sessionId,
+      documentId,
       user,
-      users: session.users,
-      spreadsheetData: spreadsheetData.get(sessionId),
+      users: allDocumentUsers,
+      spreadsheetData: spreadsheetDocuments.get(documentId),
       cellEditors: cellEditorsObject
     });
 
-    console.log('📤 Broadcasting user-joined and users-updated to session:', sessionId);
-    // Notify ALL users in the session (including the sender) about the new user
-    io.to(sessionId).emit('user-joined', user);
-    io.to(sessionId).emit('users-updated', session.users);
+    console.log('📤 Broadcasting user-joined and users-updated to document:', documentId);
+    // Notify ALL users working on this document about the new user
+    io.to(`doc:${documentId}`).emit('user-joined', user);
+    io.to(`doc:${documentId}`).emit('users-updated', allDocumentUsers);
   });
 
   // Handle cell edit start
-  socket.on('cell-edit-start', ({ sessionId, cellId }) => {
+  socket.on('cell-edit-start', ({ sessionId, documentId, cellId }) => {
     const user = users.get(socket.id);
-    console.log('✏️ Server received cell-edit-start:', { sessionId, cellId, user: user?.name, socketId: socket.id });
+    console.log('✏️ Server received cell-edit-start:', { sessionId, documentId, cellId, user: user?.name, socketId: socket.id });
     
     if (user) {
-      let sessionCellEditors = cellEditors.get(sessionId);
-      if (!sessionCellEditors) {
-        sessionCellEditors = new Map();
-        cellEditors.set(sessionId, sessionCellEditors);
+      let docCellEditors = documentCellEditors.get(documentId);
+      if (!docCellEditors) {
+        docCellEditors = new Map();
+        documentCellEditors.set(documentId, docCellEditors);
       }
-      sessionCellEditors.set(cellId, user);
+      docCellEditors.set(cellId, user);
       
-      console.log('📤 Broadcasting cell-edit-started to session:', sessionId, 'for cell:', cellId);
-      // Broadcast to all users in the session including sender
-      io.to(sessionId).emit('cell-edit-started', { cellId, user });
+      console.log('📤 Broadcasting cell-edit-started to document:', documentId, 'for cell:', cellId);
+      // Broadcast to all users working on this document
+      io.to(`doc:${documentId}`).emit('cell-edit-started', { cellId, user });
     } else {
       console.error('❌ User not found for socket:', socket.id);
     }
   });
 
   // Handle cell edit end
-  socket.on('cell-edit-end', ({ sessionId, cellId }) => {
-    console.log('✅ Server received cell-edit-end:', { sessionId, cellId, socketId: socket.id });
+  socket.on('cell-edit-end', ({ sessionId, documentId, cellId }) => {
+    console.log('✅ Server received cell-edit-end:', { sessionId, documentId, cellId, socketId: socket.id });
     
-    const sessionCellEditors = cellEditors.get(sessionId);
-    if (sessionCellEditors) {
-      sessionCellEditors.delete(cellId);
-      console.log('📤 Broadcasting cell-edit-ended to session:', sessionId, 'for cell:', cellId);
-      // Broadcast to all users in the session including sender
-      io.to(sessionId).emit('cell-edit-ended', { cellId });
+    const docCellEditors = documentCellEditors.get(documentId);
+    if (docCellEditors) {
+      docCellEditors.delete(cellId);
+      console.log('📤 Broadcasting cell-edit-ended to document:', documentId, 'for cell:', cellId);
+      // Broadcast to all users working on this document
+      io.to(`doc:${documentId}`).emit('cell-edit-ended', { cellId });
     } else {
-      console.log('⚠️ No session editors found for session:', sessionId);
+      console.log('⚠️ No document editors found for document:', documentId);
     }
   });
 
   // Handle cell value change
-  socket.on('cell-value-change', ({ sessionId, rowIndex, field, value }) => {
-    console.log('📝 Server received cell-value-change:', { sessionId, rowIndex, field, value, from: socket.id });
+  socket.on('cell-value-change', ({ sessionId, documentId, rowIndex, field, value }) => {
+    console.log('📝 Server received cell-value-change:', { sessionId, documentId, rowIndex, field, value, from: socket.id });
     
-    const data = spreadsheetData.get(sessionId);
+    const data = spreadsheetDocuments.get(documentId);
     if (data && data[rowIndex]) {
       data[rowIndex][field] = value;
-      spreadsheetData.set(sessionId, data);
+      spreadsheetDocuments.set(documentId, data);
       
-      console.log('📤 Broadcasting cell-value-updated to session:', sessionId);
-      // Broadcast change to ALL users in the session (including sender for confirmation)
-      io.to(sessionId).emit('cell-value-updated', { rowIndex, field, value });
+      console.log('📤 Broadcasting cell-value-updated to document:', documentId);
+      // Broadcast change to ALL users working on this document
+      io.to(`doc:${documentId}`).emit('cell-value-updated', { rowIndex, field, value });
     } else {
-      console.log('❌ Invalid data or rowIndex for session:', sessionId);
+      console.log('❌ Invalid data or rowIndex for document:', documentId);
     }
   });
 
@@ -235,27 +265,40 @@ io.on('connection', (socket) => {
     
     const user = users.get(socket.id);
     if (user) {
-      const session = sessions.get(user.sessionId);
-      if (session) {
-        session.users = session.users.filter(u => u.id !== socket.id);
-        
-        // Remove user from cell editors for this session
-        const sessionCellEditors = cellEditors.get(user.sessionId);
-        if (sessionCellEditors) {
-          for (const [cellId, editor] of sessionCellEditors.entries()) {
-            if (editor.id === socket.id) {
-              sessionCellEditors.delete(cellId);
-              io.to(user.sessionId).emit('cell-edit-ended', { cellId });
-            }
-          }
-        }
-        
-        // Notify ALL remaining users in the session
-        io.to(user.sessionId).emit('user-left', user);
-        io.to(user.sessionId).emit('users-updated', session.users);
+      const { sessionId, documentId } = user;
+      
+      // Remove session from document tracking
+      const docSessions = documentSessions.get(documentId);
+      if (docSessions) {
+        docSessions.delete(sessionId);
       }
       
+      // Remove user from cell editors for this document
+      const docCellEditors = documentCellEditors.get(documentId);
+      if (docCellEditors) {
+        for (const [cellId, editor] of docCellEditors.entries()) {
+          if (editor.id === socket.id) {
+            docCellEditors.delete(cellId);
+            io.to(`doc:${documentId}`).emit('cell-edit-ended', { cellId });
+          }
+        }
+      }
+      
+      // Get remaining users working on this document
+      const remainingDocumentUsers = [];
+      for (const [userId, userData] of users.entries()) {
+        if (userData.documentId === documentId && userId !== socket.id) {
+          remainingDocumentUsers.push(userData);
+        }
+      }
+      
+      // Notify remaining users in the document
+      io.to(`doc:${documentId}`).emit('user-left', user);
+      io.to(`doc:${documentId}`).emit('users-updated', remainingDocumentUsers);
+      
+      // Clean up user and session
       users.delete(socket.id);
+      sessions.delete(sessionId);
     }
   });
 });
