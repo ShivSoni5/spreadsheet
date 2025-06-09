@@ -7,19 +7,31 @@
   function getInitials(name: string): string {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   }
+
+  // Reorder users to show current user last (rightmost)
+  $: reorderedUsers = users.slice().sort((a, b) => {
+    if (currentUser?.id === a.id) return 1;
+    if (currentUser?.id === b.id) return -1;
+    return 0;
+  });
 </script>
 
 <div class="user-list">
-  {#each users as user (user.id)}
-    <div 
-      class="user-avatar"
-      class:current-user={currentUser?.id === user.id}
-      style="background-color: {user.color}"
-      title="{user.name}{currentUser?.id === user.id ? ' (You)' : ''}"
-      role="tooltip"
-      aria-label="{user.name}{currentUser?.id === user.id ? ' (You)' : ''}"
-    >
-      {getInitials(user.name)}
+  {#each reorderedUsers as user (user.id)}
+    <div class="user-container">
+      <div 
+        class="user-avatar"
+        class:current-user={currentUser?.id === user.id}
+        style="background-color: {user.color}"
+        title="{user.name}{currentUser?.id === user.id ? ' (You)' : ''}"
+        role="tooltip"
+        aria-label="{user.name}{currentUser?.id === user.id ? ' (You)' : ''}"
+      >
+        {getInitials(user.name)}
+      </div>
+      {#if currentUser?.id === user.id}
+        <span class="you-label">(You)</span>
+      {/if}
     </div>
   {/each}
 </div>
@@ -28,7 +40,14 @@
   .user-list {
     display: flex;
     gap: 8px;
+    align-items: flex-start;
+  }
+
+  .user-container {
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    gap: 4px;
   }
 
   .user-avatar {
@@ -56,5 +75,13 @@
   .current-user {
     border-color: #1f2937;
     box-shadow: 0 0 0 2px #ffffff;
+  }
+
+  .you-label {
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
   }
 </style>
