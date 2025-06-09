@@ -6,13 +6,41 @@
   export let sessionId: string = '';
   export let documentId: string = 'default-doc';
   export let currentUser: User | null = null;
-  export let users: User[] = []; // Receive users from parent App component
+  export const users: User[] = []; // Receive users from parent App component
 
   let spreadsheetData: SpreadsheetCell[] = [];
   let cellEditors: Record<string, User> = {};
   let editingCell: string | null = null;
   let isUpdatingFromServer = false; // Flag to prevent update loops
   let cellEditorsUpdateCounter = 0; // Force reactivity
+  
+  // Debounce utilities
+  const debouncedCellUpdates = new Map<string, number>(); // Store timeout IDs
+  const debouncedEditEvents = new Map<string, number>(); // Store timeout IDs for edit events
+  
+  // Debounce utility function
+  function debounce<T extends (...args: any[]) => void>(
+    func: T, 
+    delay: number, 
+    timeoutMap: Map<string, number>,
+    key: string
+  ): (...args: Parameters<T>) => void {
+    return (...args: Parameters<T>) => {
+      // Clear existing timeout
+      const existingTimeout = timeoutMap.get(key);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+      
+      // Set new timeout
+      const timeoutId = setTimeout(() => {
+        func(...args);
+        timeoutMap.delete(key);
+      }, delay);
+      
+      timeoutMap.set(key, timeoutId);
+    };
+  }
 
   // Debug reactive statement to track cellEditors changes
   $: {
@@ -37,41 +65,80 @@
   // Generate column headers A-J
   const columnHeaders = Array.from({ length: 10 }, (_, i) => String.fromCharCode(65 + i));
 
-  // Handle cell focus (start editing)
+  // Handle cell focus (start editing) - debounced
   function handleCellFocus(rowIndex: number, columnKey: string): void {
     const cellId = `${rowIndex}-${columnKey}`;
     editingCell = cellId;
+    
     if (sessionId && documentId) {
-      socketService.startCellEdit(sessionId, documentId, cellId);
+      // Debounce the server call to prevent rapid focus/blur events
+      const debouncedStartEdit = debounce(
+        (sId: string, dId: string, cId: string) => {
+          socketService.startCellEdit(sId, dId, cId);
+        },
+        150, // 150ms delay
+        debouncedEditEvents,
+        `start-${cellId}`
+      );
+      
+      debouncedStartEdit(sessionId, documentId, cellId);
     }
   }
 
-  // Handle cell blur (stop editing)
+  // Handle cell blur (stop editing) - debounced
   function handleCellBlur(rowIndex: number, columnKey: string): void {
     const cellId = `${rowIndex}-${columnKey}`;
     editingCell = null;
+    
     if (sessionId && documentId) {
-      socketService.endCellEdit(sessionId, documentId, cellId);
+      // Cancel any pending start edit for this cell
+      const startTimeout = debouncedEditEvents.get(`start-${cellId}`);
+      if (startTimeout) {
+        clearTimeout(startTimeout);
+        debouncedEditEvents.delete(`start-${cellId}`);
+      }
+      
+      // Debounce the end edit call
+      const debouncedEndEdit = debounce(
+        (sId: string, dId: string, cId: string) => {
+          socketService.endCellEdit(sId, dId, cId);
+        },
+        100, // 100ms delay
+        debouncedEditEvents,
+        `end-${cellId}`
+      );
+      
+      debouncedEndEdit(sessionId, documentId, cellId);
     }
   }
 
-  // Handle cell value change
+  // Handle cell value change - heavily debounced for performance
   function handleCellChange(rowIndex: number, columnKey: string, event: Event): void {
     // Skip if this is an update from server to prevent loops
     if (isUpdatingFromServer) return;
     
     const target = event.target as HTMLInputElement;
     const value = target.value;
+    const cellId = `${rowIndex}-${columnKey}`;
     
-    // Update local data immediately for responsiveness
+    // Update local data immediately for responsiveness (no debouncing for UI)
     if (spreadsheetData[rowIndex]) {
       spreadsheetData[rowIndex][columnKey] = value;
       spreadsheetData = [...spreadsheetData];
     }
     
-    // Send update to server (which will broadcast to all clients)
+    // Debounce server updates for performance
     if (sessionId && documentId) {
-      socketService.updateCellValue(sessionId, documentId, rowIndex, columnKey, value);
+      const debouncedUpdate = debounce(
+        (sId: string, dId: string, rIdx: number, cKey: string, val: string) => {
+          socketService.updateCellValue(sId, dId, rIdx, cKey, val);
+        },
+        300, // 300ms delay for value changes
+        debouncedCellUpdates,
+        cellId
+      );
+      
+      debouncedUpdate(sessionId, documentId, rowIndex, columnKey, value);
     }
   }
 
@@ -177,7 +244,11 @@
   });
 
   onDestroy(() => {
-    // Clean up listeners if needed
+    // Clean up all pending timeouts
+    debouncedCellUpdates.forEach(timeoutId => clearTimeout(timeoutId));
+    debouncedEditEvents.forEach(timeoutId => clearTimeout(timeoutId));
+    debouncedCellUpdates.clear();
+    debouncedEditEvents.clear();
   });
 </script>
 
