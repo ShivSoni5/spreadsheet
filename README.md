@@ -180,13 +180,14 @@ graph LR
 
 ### Desktop Interface
 <!-- Add desktop screenshots here -->
-![Desktop View](screenshots/desktop-view.png)
-![Real-time Editing](screenshots/realtime-editing.png)
+https://github.com/user-attachments/assets/47643b9f-97d0-4fc5-a93f-c2ab18b8d18d
+
+
 
 ### Mobile Interface
-<!-- Add mobile screenshots here -->
-![Mobile Header](screenshots/mobile-header.png)
-![Mobile Menu](screenshots/mobile-menu.png)
+
+https://github.com/user-attachments/assets/86761456-e8f9-463b-88b9-bb825b962aaf
+
 
 ## 🔮 Future Enhancements
 
