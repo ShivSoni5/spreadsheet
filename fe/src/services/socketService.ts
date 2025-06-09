@@ -15,10 +15,7 @@ class SocketService {
       // If we're on Vercel (production)
       if (hostname.includes('vercel.app')) {
         // Use Railway backend for WebSocket support
-        serverUrl = 'https://spreadsheet-be-production.up.railway.app'; // Replace with your actual Railway URL
-        
-        // Alternative: You can also manually set it here
-        // serverUrl = 'https://YOUR_ACTUAL_RAILWAY_URL.railway.app';
+        serverUrl = 'https://spreadsheet-be-production.up.railway.app';
       }
       // If we're on localhost but frontend is on different port
       else if (hostname === 'localhost' || hostname === '127.0.0.1') {
