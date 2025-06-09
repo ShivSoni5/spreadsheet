@@ -39,6 +39,16 @@ app.use(cors({
 
 app.use(express.json());
 
+// Basic root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Spreadsheet Backend API', 
+    version: '1.0.0',
+    status: 'running',
+    endpoints: ['/health', '/debug/sessions']
+  });
+});
+
 // In-memory storage (use database in production)
 const sessions = new Map();
 const users = new Map();
