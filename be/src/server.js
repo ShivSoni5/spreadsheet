@@ -13,6 +13,7 @@ const io = new Server(server, {
     origin: process.env.NODE_ENV === 'production' 
       ? [
           /^https:\/\/.*\.vercel\.app$/,  // Allow any vercel.app domain
+          /^https:\/\/.*\.railway\.app$/,  // Allow any railway.app domain
           "http://localhost:5173", 
           "http://localhost:5174"
         ]
@@ -30,6 +31,7 @@ app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [
         /^https:\/\/.*\.vercel\.app$/,  // Allow any vercel.app domain
+        /^https:\/\/.*\.railway\.app$/,  // Allow any railway.app domain
         "http://localhost:5173", 
         "http://localhost:5174"
       ]

@@ -14,15 +14,11 @@ class SocketService {
       
       // If we're on Vercel (production)
       if (hostname.includes('vercel.app')) {
-        // Automatically determine backend URL based on frontend URL
-        // Replace 'fe' with 'be' in the hostname if present, otherwise use generic pattern
-        const backendHostname = hostname.includes('fe') 
-          ? hostname.replace('fe', 'be')
-          : hostname.replace('spreadsheet', 'spreadsheet-be');
-        serverUrl = `https://${backendHostname}`;
+        // Use Railway backend for WebSocket support
+        serverUrl = 'https://spreadsheet-be-production.up.railway.app'; // Replace with your actual Railway URL
         
-        // Fallback: You can also set specific URL here
-        // serverUrl = 'https://YOUR_ACTUAL_BACKEND_URL.vercel.app';
+        // Alternative: You can also manually set it here
+        // serverUrl = 'https://YOUR_ACTUAL_RAILWAY_URL.railway.app';
       }
       // If we're on localhost but frontend is on different port
       else if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -40,7 +36,7 @@ class SocketService {
     
     try {
       this.socket = io(serverUrl, {
-        transports: ['websocket', 'polling'],
+        transports: ['websocket', 'polling'],  // Prefer WebSocket on all platforms
         upgrade: true,
         rememberUpgrade: true,
         timeout: 20000,
