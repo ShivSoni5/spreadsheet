@@ -12,7 +12,7 @@
   let cellEditors: Record<string, User> = {};
   let editingCell: string | null = null;
   let isUpdatingFromServer = false; // Flag to prevent update loops
-  let cellEditorsUpdateCounter = 0; // Force reactivity
+
   
   // Debounce utilities
   const debouncedCellUpdates = new Map<string, number>(); // Store timeout IDs
@@ -42,11 +42,7 @@
     };
   }
 
-  // Debug reactive statement to track cellEditors changes
-  $: {
-    // cellEditors tracking for reactivity
-    cellEditorsUpdateCounter; // Keep counter for reactivity
-  }
+
 
   // Initialize 10 rows of empty data
   function initializeRowData(): SpreadsheetCell[] {
@@ -64,6 +60,50 @@
 
   // Generate column headers A-J
   const columnHeaders = Array.from({ length: 10 }, (_, i) => String.fromCharCode(65 + i));
+
+  // Optimized: Only compute styles for cells that are actually being edited
+  $: editedCellStyles = (() => {
+    const styles: Record<string, string> = {};
+    
+    // Only compute for cells that have editors (much smaller set)
+    Object.keys(cellEditors).forEach(cellId => {
+      const editor = cellEditors[cellId];
+      if (editor && editor.id !== currentUser?.id) {
+        styles[cellId] = `
+          background-color: ${editor.color}20; 
+          border: 2px solid ${editor.color}; 
+          box-shadow: 0 0 8px ${editor.color}40;
+          position: relative;
+        `;
+      }
+    });
+    
+    // Add current user's editing cell
+    if (editingCell) {
+      styles[editingCell] = `
+        background-color: #dbeafe; 
+        border: 2px solid #2563eb;
+        box-shadow: 0 0 8px #2563eb40;
+        position: relative;
+      `;
+    }
+    
+    return styles;
+  })();
+
+  // Optimized: Only track editors for cells being edited
+  $: editedCellTitles = (() => {
+    const titles: Record<string, string> = {};
+    Object.keys(cellEditors).forEach(cellId => {
+      const editor = cellEditors[cellId];
+      if (editor && editor.id !== currentUser?.id) {
+        titles[cellId] = `${editor.name} is editing this cell`;
+      }
+    });
+    return titles;
+  })();
+
+
 
   // Handle cell focus (start editing) - debounced
   function handleCellFocus(rowIndex: number, columnKey: string): void {
@@ -142,58 +182,6 @@
     }
   }
 
-  // Get cell style based on editing state
-  function getCellStyle(rowIndex: number, columnKey: string): string {
-    const cellId = `${rowIndex}-${columnKey}`;
-    const editor = cellEditors[cellId];
-    
-    // If someone else is editing this cell, show their color
-    if (editor && editor.id !== currentUser?.id) {
-      return `
-        background-color: ${editor.color}20; 
-        border: 2px solid ${editor.color}; 
-        box-shadow: 0 0 8px ${editor.color}40;
-        position: relative;
-      `;
-    }
-    
-    // If current user is editing this cell
-    if (editingCell === cellId) {
-      return `
-        background-color: #dbeafe; 
-        border: 2px solid #2563eb;
-        box-shadow: 0 0 8px #2563eb40;
-        position: relative;
-      `;
-    }
-    
-    return '';
-  }
-
-  // Get editor info for cell tooltip
-  function getCellTitle(rowIndex: number, columnKey: string): string {
-    const cellId = `${rowIndex}-${columnKey}`;
-    const editor = cellEditors[cellId];
-    
-    if (editor && editor.id !== currentUser?.id) {
-      return `${editor.name} is editing this cell`;
-    }
-    
-    return '';
-  }
-
-  // Check if cell is being edited by someone else
-  function isEditedByOther(rowIndex: number, columnKey: string): boolean {
-    const cellId = `${rowIndex}-${columnKey}`;
-    const editor = cellEditors[cellId];
-    return !!(editor && editor.id !== currentUser?.id);
-  }
-
-  // Get the editor of a cell
-  function getCellEditor(rowIndex: number, columnKey: string): User | null {
-    const cellId = `${rowIndex}-${columnKey}`;
-    return cellEditors[cellId] || null;
-  }
 
   // Get user initials for avatar
   function getInitials(name: string): string {
@@ -213,13 +201,11 @@
     socketService.on('cell-edit-started', (data) => {
       cellEditors[data.cellId] = data.user;
       cellEditors = { ...cellEditors };
-      cellEditorsUpdateCounter++; // Force reactivity
     });
 
     socketService.on('cell-edit-ended', (data) => {
       delete cellEditors[data.cellId];
       cellEditors = { ...cellEditors };
-      cellEditorsUpdateCounter++; // Force reactivity
     });
 
     socketService.on('cell-value-updated', (data) => {
@@ -275,21 +261,21 @@
           <td class="row-number">{rowIndex + 1}</td>
           {#each columnHeaders as columnKey}
             <td class="cell-container">
-              <input
-                type="text"
-                class="cell-input"
-                value={row[columnKey] || ''}
-                style={cellEditorsUpdateCounter >= 0 ? getCellStyle(rowIndex, columnKey) : ''}
-                title={getCellTitle(rowIndex, columnKey)}
-                on:focus={() => handleCellFocus(rowIndex, columnKey)}
-                on:blur={() => handleCellBlur(rowIndex, columnKey)}
-                on:input={(event) => handleCellChange(rowIndex, columnKey, event)}
-              />
-              
-              <!-- Show editor indicator when someone else is editing -->
-              {#if cellEditorsUpdateCounter >= 0 && isEditedByOther(rowIndex, columnKey)}
-                {#each [getCellEditor(rowIndex, columnKey)] as editor}
-                  {#if editor}
+              {#each [`${rowIndex}-${columnKey}`] as cellId}
+                <input
+                  type="text"
+                  class="cell-input"
+                  value={row[columnKey] || ''}
+                  style={editedCellStyles[cellId] || ''}
+                  title={editedCellTitles[cellId] || ''}
+                  on:focus={() => handleCellFocus(rowIndex, columnKey)}
+                  on:blur={() => handleCellBlur(rowIndex, columnKey)}
+                  on:input={(event) => handleCellChange(rowIndex, columnKey, event)}
+                />
+                
+                <!-- Show editor indicator when someone else is editing -->
+                {#if cellEditors[cellId] && cellEditors[cellId].id !== currentUser?.id}
+                  {#each [cellEditors[cellId]] as editor}
                     <div 
                       class="cell-editor-indicator" 
                       style="background-color: {editor.color}"
@@ -299,9 +285,9 @@
                     >
                       {getInitials(editor.name)}
                     </div>
-                  {/if}
-                {/each}
-              {/if}
+                  {/each}
+                {/if}
+              {/each}
             </td>
           {/each}
         </tr>
