@@ -7,6 +7,8 @@
   export let documentId: string = 'default-doc';
   export let currentUser: User | null = null;
   export const users: User[] = []; // Receive users from parent App component
+  export let initialSpreadsheetData: SpreadsheetCell[] = []; // Initial data from parent
+  export let initialCellEditors: Record<string, User> = {}; // Initial cell editors from parent
 
   let spreadsheetData: SpreadsheetCell[] = [];
   let cellEditors: Record<string, User> = {};
@@ -189,13 +191,14 @@
   }
 
   onMount(() => {
-    // Initialize empty 10x10 grid
-    spreadsheetData = initializeRowData();
-    
-    // Listen for socket events
+    // Set up socket event listeners FIRST, before any data initialization
     socketService.on('session-joined', (data) => {
-      spreadsheetData = data.spreadsheetData || initializeRowData();
-      cellEditors = data.cellEditors || {};
+      console.log('📋 Spreadsheet: session-joined received with data:', data.spreadsheetData?.length, 'rows');
+      // Only update if we don't already have initial data from parent
+      if (spreadsheetData.length === 0 || spreadsheetData.every(row => Object.values(row).every(cell => !cell))) {
+        spreadsheetData = data.spreadsheetData || initializeRowData();
+        cellEditors = data.cellEditors || {};
+      }
     });
 
     socketService.on('cell-edit-started', (data) => {
@@ -206,6 +209,14 @@
     socketService.on('cell-edit-ended', (data) => {
       delete cellEditors[data.cellId];
       cellEditors = { ...cellEditors };
+    });
+
+    socketService.on('document-cleared' as any, (data: { documentId: string }) => {
+      if (data.documentId === documentId) {
+        console.log('📄 Document has been cleared due to inactivity. Resetting view.');
+        spreadsheetData = initializeRowData();
+        cellEditors = {};
+      }
     });
 
     socketService.on('cell-value-updated', (data) => {
@@ -234,6 +245,16 @@
         }, 10);
       }
     });
+    
+    // Initialize with data from parent (if available) or empty grid as fallback
+    if (initialSpreadsheetData && initialSpreadsheetData.length > 0) {
+      console.log('📊 Spreadsheet: Using initial data from parent:', initialSpreadsheetData.length, 'rows');
+      spreadsheetData = initialSpreadsheetData;
+      cellEditors = initialCellEditors;
+    } else {
+      console.log('📊 Spreadsheet: No initial data, creating empty grid');
+      spreadsheetData = initializeRowData();
+    }
   });
 
   onDestroy(() => {

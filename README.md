@@ -17,6 +17,8 @@ A real-time collaborative spreadsheet application built with modern web technolo
 ### 🏗️ Document-Based Architecture
 - **Individual User Sessions**: Each user gets a unique session ID for personalized experience
 - **Shared Document Collaboration**: All users collaborate on the same document while maintaining separate sessions
+- **Persistent Data Sharing**: New users joining a document automatically receive all existing cell data
+- **Automatic Memory Management**: Documents are automatically cleared after 15 minutes of inactivity to prevent memory leaks
 
 ### 📱 Mobile Responsive Design
 - **Adaptive Header**: Desktop shows full info, mobile uses hamburger menu
@@ -47,6 +49,8 @@ A real-time collaborative spreadsheet application built with modern web technolo
 - **Memory Management**: Proper cleanup of timeouts and event listeners
 - **Error Handling**: Graceful degradation and connection recovery
 - **Cross-Origin Support**: CORS configured for multiple deployment environments
+- **Intelligent Data Persistence**: Server maintains document state and shares with new users
+- **Automated Cleanup**: Background process monitors document activity and clears inactive documents after 15 minutes
 
 ## 🛠️ Technology Stack
 

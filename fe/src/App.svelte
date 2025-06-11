@@ -12,6 +12,8 @@
   let sessionId = '';
   let documentId = 'default-doc'; // Add documentId - could be from URL or fixed
   let isMobileMenuOpen = false; // Mobile menu state
+  let initialSpreadsheetData: any[] = []; // Store initial spreadsheet data
+  let initialCellEditors: Record<string, any> = {}; // Store initial cell editors
 
   onMount(() => {
     // Initialize socket connection
@@ -25,11 +27,16 @@
     // Listen for socket events
     socketService.on('session-joined', (data) => {
       console.log('📋 Session joined:', { sessionId: data.sessionId, documentId: data.documentId, users: data.users.length, userNames: data.users.map(u => u.name) });
+      console.log('📊 App: Received spreadsheet data:', data.spreadsheetData?.length, 'rows');
       sessionId = data.sessionId;
       documentId = data.documentId;
       currentUser = data.user;
       users = data.users;
       isConnected = true;
+      
+      // Store spreadsheet data to pass to Spreadsheet component
+      initialSpreadsheetData = data.spreadsheetData || [];
+      initialCellEditors = data.cellEditors || {};
       
       // Store document ID in localStorage for other tabs
       localStorage.setItem('spreadsheet-document-id', documentId);
@@ -205,7 +212,7 @@
 
   <div class="app-content">
     {#if sessionId}
-      <Spreadsheet {sessionId} {documentId} {currentUser} {users} />
+      <Spreadsheet {sessionId} {documentId} {currentUser} {users} {initialSpreadsheetData} {initialCellEditors} />
     {:else}
       <div class="loading-state">
         <div class="loading-spinner"></div>

@@ -57,6 +57,7 @@ const users = new Map();
 const spreadsheetDocuments = new Map(); // Changed from spreadsheetData - keyed by documentId
 const documentCellEditors = new Map(); // Changed from cellEditors - keyed by documentId
 const documentSessions = new Map(); // Track which sessions are working on which documents
+const documentLastActivity = new Map(); // Track last activity time for each document
 
 // Generate random names
 const randomNames = [
@@ -68,6 +69,10 @@ const colors = [
   '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', 
   '#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#84cc16'
 ];
+
+function touchDocument(documentId) {
+  documentLastActivity.set(documentId, new Date());
+}
 
 function generateRandomName() {
   return randomNames[Math.floor(Math.random() * randomNames.length)] + 
@@ -125,6 +130,8 @@ io.on('connection', (socket) => {
   socket.on('join-session', ({ documentId }) => {
     console.log('🔌 User joining document:', { socketId: socket.id, documentId });
     
+    touchDocument(documentId);
+    
     // Always generate a new unique session ID for each user
     const sessionId = uuidv4();
     console.log('🆕 Generated new session for user:', sessionId);
@@ -170,6 +177,7 @@ io.on('connection', (socket) => {
       spreadsheetDocuments.set(documentId, initialData);
       documentCellEditors.set(documentId, new Map());
       documentSessions.set(documentId, new Set());
+      touchDocument(documentId);
     }
 
     // Add session to document tracking
@@ -190,13 +198,16 @@ io.on('connection', (socket) => {
     const docCellEditors = documentCellEditors.get(documentId) || new Map();
     const cellEditorsObject = Object.fromEntries(docCellEditors);
 
+    // Get the current spreadsheet data for this document
+    const currentSpreadsheetData = spreadsheetDocuments.get(documentId);
+
     // Send current state to user
     socket.emit('session-joined', {
       sessionId,
       documentId,
       user,
       users: allDocumentUsers,
-      spreadsheetData: spreadsheetDocuments.get(documentId),
+      spreadsheetData: currentSpreadsheetData,
       cellEditors: cellEditorsObject
     });
 
@@ -212,6 +223,7 @@ io.on('connection', (socket) => {
     console.log('✏️ Server received cell-edit-start:', { sessionId, documentId, cellId, user: user?.name, socketId: socket.id });
     
     if (user) {
+      touchDocument(documentId);
       let docCellEditors = documentCellEditors.get(documentId);
       if (!docCellEditors) {
         docCellEditors = new Map();
@@ -231,6 +243,7 @@ io.on('connection', (socket) => {
   socket.on('cell-edit-end', ({ sessionId, documentId, cellId }) => {
     console.log('✅ Server received cell-edit-end:', { sessionId, documentId, cellId, socketId: socket.id });
     
+    touchDocument(documentId);
     const docCellEditors = documentCellEditors.get(documentId);
     if (docCellEditors) {
       docCellEditors.delete(cellId);
@@ -246,6 +259,7 @@ io.on('connection', (socket) => {
   socket.on('cell-value-change', ({ sessionId, documentId, rowIndex, field, value }) => {
     console.log('📝 Server received cell-value-change:', { sessionId, documentId, rowIndex, field, value, from: socket.id });
     
+    touchDocument(documentId);
     const data = spreadsheetDocuments.get(documentId);
     if (data && data[rowIndex]) {
       data[rowIndex][field] = value;
@@ -307,6 +321,34 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const CHECK_INTERVAL = 60 * 1000; // 1 minute
+
+setInterval(() => {
+  const now = new Date();
+  for (const [documentId, lastActivity] of documentLastActivity.entries()) {
+    if (now.getTime() - lastActivity.getTime() > INACTIVITY_TIMEOUT) {
+      console.log(`🗑️  Document ${documentId} inactive. Clearing data.`);
+      
+      io.to(`doc:${documentId}`).emit('document-cleared', { documentId });
+      
+      const initialData = [];
+      for (let i = 0; i < 10; i++) {
+        const row = {};
+        for (let j = 0; j < 10; j++) {
+          const colName = String.fromCharCode(65 + j);
+          row[colName] = '';
+        }
+        initialData.push(row);
+      }
+      spreadsheetDocuments.set(documentId, initialData);
+      documentCellEditors.set(documentId, new Map());
+      
+      documentLastActivity.delete(documentId);
+    }
+  }
+}, CHECK_INTERVAL);
 
 const PORT = process.env.PORT || 3001;
 

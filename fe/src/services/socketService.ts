@@ -67,6 +67,10 @@ class SocketService {
       this.socket.on('cell-value-updated', (data) => {
         this.emit('cell-value-updated', data);
       });
+      this.socket.on('document-cleared', (data) => {
+        console.log('🎯 SocketService: document-cleared received:', data.documentId);
+        this.emit('document-cleared', data);
+      });
       this.socket.on('connect', () => {
         this.emit('connect');
       });
